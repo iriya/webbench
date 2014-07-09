@@ -1,4 +1,5 @@
-webbench 1.5 with http header customize.
+webbench 1.5 
+(with HTTP header customize and HTTP POST support).
 ========
 snapshot from http://home.tiscali.cz/~cz210552/webbench.html
 
@@ -18,7 +19,7 @@ Usage:
       -f|--force               Don't wait for reply from server.
       -r|--reload              Send reload request - Pragma: no-cache.
       -t|--time <sec>          Run benchmark for <sec> seconds. Default 30.
-      -p|--proxy <server:port> Use proxy server for request.
+      -x|--proxy <server:port> Use proxy server for request.
       -c|--clients <n>         Run <n> HTTP clients at once. Default one.
       -9|--http09              Use HTTP/0.9 style requests.
       -1|--http10              Use HTTP/1.0 protocol.
@@ -29,4 +30,5 @@ Usage:
       --trace                  Use TRACE request method.
       -?|-h|--help             This information.
       -V|--version             Display program version.
-      -d|--header              Custom HTTP header.
+      -d|--header <header>     Custom HTTP header.
+      -p|--post <body>          Use POST request method.

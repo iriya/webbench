@@ -36,6 +36,7 @@ int http10=1; /* 0 - http/0.9, 1 - http/1.0, 2 - http/1.1 */
 #define METHOD_HEAD 1
 #define METHOD_OPTIONS 2
 #define METHOD_TRACE 3
+#define METHOD_POST 4
 #define PROGRAM_VERSION "1.5"
 int method=METHOD_GET;
 int clients=1;
@@ -50,6 +51,8 @@ char host[MAXHOSTNAMELEN];
 #define REQUEST_SIZE 2048
 char request[REQUEST_SIZE];
 char *header=NULL;
+char *body=NULL;
+int content_length=0;
 
 static const struct option long_options[]=
 {
@@ -65,9 +68,10 @@ static const struct option long_options[]=
  {"options",no_argument,&method,METHOD_OPTIONS},
  {"trace",no_argument,&method,METHOD_TRACE},
  {"version",no_argument,NULL,'V'},
- {"proxy",required_argument,NULL,'p'},
+ {"proxy",required_argument,NULL,'x'},
  {"clients",required_argument,NULL,'c'},
  {"header",required_argument,NULL,'d'},
+ {"post",required_argument,NULL,'p'},
  {NULL,0,NULL,0}
 };
 
@@ -88,7 +92,7 @@ static void usage(void)
 	"  -f|--force               Don't wait for reply from server.\n"
 	"  -r|--reload              Send reload request - Pragma: no-cache.\n"
 	"  -t|--time <sec>          Run benchmark for <sec> seconds. Default 30.\n"
-	"  -p|--proxy <server:port> Use proxy server for request.\n"
+	"  -x|--proxy <server:port> Use proxy server for request.\n"
 	"  -c|--clients <n>         Run <n> HTTP clients at once. Default one.\n"
 	"  -9|--http09              Use HTTP/0.9 style requests.\n"
 	"  -1|--http10              Use HTTP/1.0 protocol.\n"
@@ -99,7 +103,8 @@ static void usage(void)
 	"  --trace                  Use TRACE request method.\n"
 	"  -?|-h|--help             This information.\n"
 	"  -V|--version             Display program version.\n"
-	"  -d|--header              Custom HTTP header.\n"
+	"  -d|--header <header>     Custom HTTP header.\n"
+	"  -p|--post <body>	    Use POST request method.\n"
 	);
 };
 int main(int argc, char *argv[])
@@ -114,7 +119,7 @@ int main(int argc, char *argv[])
           return 2;
  } 
 
- while((opt=getopt_long(argc,argv,"912Vfrt:p:c:?hd:",long_options,&options_index))!=EOF )
+ while((opt=getopt_long(argc,argv,"912Vfrt:x:c:?hd:p:",long_options,&options_index))!=EOF )
  {
   switch(opt)
   {
@@ -126,7 +131,7 @@ int main(int argc, char *argv[])
    case '2': http10=2;break;
    case 'V': printf(PROGRAM_VERSION"\n");exit(0);
    case 't': benchtime=atoi(optarg);break;	     
-   case 'p': 
+   case 'x': 
 	     /* proxy server parsing server:port */
 	     tmp=strrchr(optarg,':');
 	     proxyhost=optarg;
@@ -150,7 +155,12 @@ int main(int argc, char *argv[])
    case 'h':
    case '?': usage();return 2;break;
    case 'c': clients=atoi(optarg);break;
-   case 'd': header=optarg;
+   case 'd': header=optarg;break;
+   case 'p': 
+	     method=METHOD_POST;
+	     body=optarg;
+	     content_length=strlen(body);
+	     break;
   }
  }
  
@@ -180,6 +190,8 @@ int main(int argc, char *argv[])
 		 printf("HEAD");break;
 	 case METHOD_TRACE:
 		 printf("TRACE");break;
+	 case METHOD_POST:
+		 printf("POST");break;
  }
  printf(" %s",argv[optind]);
  switch(http10)
@@ -210,6 +222,7 @@ void build_request(const char *url)
 
   if(force_reload && proxyhost!=NULL && http10<1) http10=1;
   if(method==METHOD_HEAD && http10<1) http10=1;
+  if(method==METHOD_POST && http10<1) http10=1;
   if(method==METHOD_OPTIONS && http10<2) http10=2;
   if(method==METHOD_TRACE && http10<2) http10=2;
 
@@ -220,6 +233,7 @@ void build_request(const char *url)
 	  case METHOD_HEAD: strcpy(request,"HEAD");break;
 	  case METHOD_OPTIONS: strcpy(request,"OPTIONS");break;
 	  case METHOD_TRACE: strcpy(request,"TRACE");break;
+	  case METHOD_POST: strcpy(request,"POST");break;
   }
 		  
   strcat(request," ");
@@ -283,10 +297,19 @@ void build_request(const char *url)
 	  strcat(request,host);
 	  strcat(request,"\r\n");
   }
+  /* add header */
   if(header!=NULL)
   {
           strcat(request,header);
           strcat(request,"\r\n");
+  }
+  /* add content-length header */
+  if(method==METHOD_POST)  
+  {
+	  snprintf(tmp,sizeof(tmp),"%d",content_length);
+	  strcat(request, "Content-Length: ");
+	  strcat(request, tmp);
+	  strcat(request, "\r\n");
   }
   if(force_reload && proxyhost!=NULL)
   {
@@ -296,6 +319,11 @@ void build_request(const char *url)
 	  strcat(request,"Connection: close\r\n");
   /* add empty line at end */
   if(http10>0) strcat(request,"\r\n"); 
+  /* post body */
+  if(method==METHOD_POST)
+  {
+	  strcat(request,body);
+  }
   // printf("Req=%s\n",request);
 }
 
